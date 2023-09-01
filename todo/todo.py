@@ -9,7 +9,7 @@ from fuzzyfinder import main as ff
 IMPORTANT_GROUP='!'
 LONG_GROUP='_'
 
-def deletion_index(arg :str, lines :list[str]):
+def get_deletion_index(arg :str, lines :list[str]):
     if arg.isdecimal():
         index = int(arg)
         if index < 1 or index > len(lines): return None
@@ -52,7 +52,7 @@ def deletion_index(arg :str, lines :list[str]):
         print('Could not find a matching entry for this text')
         return None
 
-def print_list(title: str, lines: list[str], offset: int, filter: str|None = None):
+def print_list_section(title: str, lines: list[str], offset: int, filter: str|None = None):
     def hasMatch(str):
         if(filter == None): return True
 
@@ -69,6 +69,29 @@ def print_list(title: str, lines: list[str], offset: int, filter: str|None = Non
         ps.wait()
         return len(lines)
     return 0
+
+def print_list(filepath):
+    try:
+        with open(filepath, 'r') as f:
+            lines = f.readlines()
+            if len(lines) > 0:
+                printed = 0
+                print('')
+                # Print important short stuff
+                printed += print_list_section(f'{bcolors.FAIL}Important quick{bcolors.ENDC}', lines, printed, f'^{IMPORTANT_GROUP}: (.*)')
+                # Print important long stuff
+                printed += print_list_section(f'{bcolors.WARNING}Important long{bcolors.ENDC}', lines, printed, f'^{IMPORTANT_GROUP}{LONG_GROUP}: (.*)')
+                # Print non important short stuff
+                printed += print_list_section(f'{bcolors.OKBLUE}Osef quick{bcolors.ENDC}', lines, printed, f'^: (.*)')
+                # Print non important long stuff
+                printed += print_list_section(f'{bcolors.OKGREEN}Osef long{bcolors.ENDC}', lines, printed, f'^{LONG_GROUP}: (.*)')
+            else:
+                print('Nothing todo!')
+    except FileNotFoundError:
+        print('Nothing todo!')
+
+
+# BEGIN
 
 class bcolors:
     HEADER = '\033[95m'
@@ -92,7 +115,7 @@ args = arg_parser.parse_args()
 if args.add == None and (args.important != False or args.long != False):
     arg_parser.error('Use --important and --long with --add only')
 
-filepath = os.path.expanduser('~/.cache/todo.todo')
+filepath = os.path.expanduser('~/.local/share/todo.todo')
 
 # Add
 if args.add != None:
@@ -106,44 +129,39 @@ if args.add != None:
 # Delete
 elif args.delete != None:
     if os.path.exists(filepath):
+
+        deleted_something=True
+
         with open(filepath, 'r+') as f:
+
             lines = f.readlines()
             line_num = len(lines)
-            del_line = deletion_index(args.delete[0], lines)
+            del_line = get_deletion_index(args.delete[0], lines)
+
             if del_line != None:
                 f.seek(0)
+
                 if del_line <= 1:
                     #Just delete everything
                     f.truncate()
-                    pass
+
                 if del_line < line_num and del_line >= 0:
                     print('[x] '+lines[del_line][lines[del_line].find(':')+1:].strip())
                     f.truncate()
                     f.writelines(lines[:del_line])
                     f.writelines(lines[del_line+1:])
+                    deleted_something = True
                 else:
                     print('Nothing to cross here')
+
             else:
                 print('Nothing to cross here')
+
+        if deleted_something:
+            print_list(filepath)
+
     else:
         print('Nothing to cross here')
 # Show
 else:
-    try:
-        with open(filepath, 'r') as f:
-            lines = f.readlines()
-            if len(lines) > 0:
-                printed = 0
-                print('')
-                # Print important short stuff
-                printed += print_list(f'{bcolors.FAIL}Important quick{bcolors.ENDC}', lines, printed, f'^{IMPORTANT_GROUP}: (.*)')
-                # Print important long stuff
-                printed += print_list(f'{bcolors.WARNING}Important long{bcolors.ENDC}', lines, printed, f'^{IMPORTANT_GROUP}{LONG_GROUP}: (.*)')
-                # Print non important short stuff
-                printed += print_list(f'{bcolors.OKBLUE}Osef quick{bcolors.ENDC}', lines, printed, f'^: (.*)')
-                # Print non important long stuff
-                printed += print_list(f'{bcolors.OKGREEN}Osef long{bcolors.ENDC}', lines, printed, f'^{LONG_GROUP}: (.*)')
-            else:
-                print('Nothing todo!')
-    except FileNotFoundError:
-        print('Nothing todo!')
+    print_list(filepath)
